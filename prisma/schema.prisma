@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================
+// LMS SMP POMOSDA — schema mengikuti rancangan skripsi
+// (users, roles, user_roles, subjects, teacher_assign, classes,
+//  enrollments, material, assignment, announce)
+// =============================================================
+
+model User {
+  id            Int        @id @default(autoincrement())
+  full_name     String     @db.VarChar(100)
+  username      String     @unique @db.VarChar(50)
+  email         String     @unique @db.VarChar(100)
+  password_hash String     @db.VarChar(255)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  roles         UserRole[]
+  teacherAssign TeacherAssign[] @relation("TeacherUser")
+  materials     Material[]      @relation("TeacherMaterials")
+  assignments   Assignment[]    @relation("TeacherAssignments")
+  announcements Announcement[]  @relation("AnnouncementCreator")
+  enrollments   Enrollment[]
+  perangkat_pembelajaran PerangkatPembelajaran[]
+  student_submissions Submission[] @relation("StudentSubmissions")
+
+  @@map("users")
+}
+
+model Role {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(20) // admin | guru | siswa
+  description String?   @db.VarChar(255)
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  user_id Int
+  role_id Int
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [role_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, role_id])
+  @@map("user_roles")
+}
+
+model Subject {
+  id           Int     @id @default(autoincrement())
+  subject_name String  @db.VarChar(100)
+  code         String? @db.VarChar(20)
+
+  teacherAssign TeacherAssign[]
+  materials     Material[]
+  assignments   Assignment[]
+  perangkat_pembelajaran PerangkatPembelajaran[]
+
+  @@map("subjects")
+}
+
+model Class {
+  id          Int     @id @default(autoincrement())
+  class_name  String  @db.VarChar(50)
+  grade_level String? @db.VarChar(10)
+
+  teacherAssign TeacherAssign[]
+  enrollments   Enrollment[]
+  materials     Material[]
+  assignments   Assignment[]
+  announcements Announcement[]
+  perangkat_pembelajaran PerangkatPembelajaran[]
+
+  @@map("classes")
+}
+
+model TeacherAssign {
+  id         Int @id @default(autoincrement())
+  teacher_id Int
+  class_id   Int
+  subject_id Int
+
+  teacher User    @relation("TeacherUser", fields: [teacher_id], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+
+  @@index([teacher_id])
+  @@index([class_id])
+  @@index([subject_id])
+  @@map("teacher_assign")
+}
+
+model Enrollment {
+  id         Int @id @default(autoincrement())
+  student_id Int
+  class_id   Int
+
+  student User  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  class   Class @relation(fields: [class_id], references: [id], onDelete: Cascade)
+
+  @@index([student_id])
+  @@index([class_id])
+  @@map("enrollments")
+}
+
+model Material {
+  id          Int      @id @default(autoincrement())
+  class_id    Int
+  subject_id  Int
+  teacher_id  Int
+  title       String   @db.VarChar(150)
+  description String?  @db.Text
+  file_url    String?  @db.VarChar(255)
+  createdAt   DateTime @default(now())
+
+  class   Class   @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  teacher User    @relation("TeacherMaterials", fields: [teacher_id], references: [id], onDelete: Cascade)
+
+  @@index([class_id])
+  @@index([subject_id])
+  @@index([teacher_id])
+  @@map("material")
+}
+
+model Assignment {
+  id             Int       @id @default(autoincrement())
+  class_id       Int
+  subject_id     Int
+  teacher_id     Int
+  title          String
+  description    String?
+  attachment_url String?
+  due_at         DateTime?
+  createdAt      DateTime  @default(now())
+
+  class          Class     @relation(fields: [class_id], references: [id], onDelete: Restrict)
+  subject        Subject   @relation(fields: [subject_id], references: [id], onDelete: Restrict)
+  teacher        User      @relation("TeacherAssignments", fields: [teacher_id], references: [id], onDelete: Restrict)
+  submissions    Submission[]
+
+  @@map("assignment")
+}
+
+model Announcement {
+  id         Int      @id @default(autoincrement())
+  scope      String   @db.VarChar(10) // all | class
+  class_id   Int?
+  created_by Int
+  title      String   @db.VarChar(150)
+  content    String   @db.Text
+  createdAt  DateTime @default(now())
+
+  class   Class? @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  creator User   @relation("AnnouncementCreator", fields: [created_by], references: [id], onDelete: Cascade)
+
+  @@index([class_id])
+  @@index([created_by])
+  @@map("announce")
+}
+
+model Submission {
+  id            Int      @id @default(autoincrement())
+  assignment_id Int
+  student_id    Int
+  file_url      String
+  submitted_at  DateTime @default(now())
+  status        String   @default("submitted")
+
+  assignment Assignment @relation(fields: [assignment_id], references: [id], onDelete: Cascade)
+  student    User       @relation("StudentSubmissions", fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@unique([assignment_id, student_id])
+  @@map("submissions")
+}
+
+model PerangkatPembelajaran {
+  id          Int      @id @default(autoincrement())
+  class_id    Int
+  subject_id  Int
+  teacher_id  Int
+  title       String
+  description String?
+  file_url    String?
+  type        String   @default("modul")
+  createdAt   DateTime @default(now())
+
+  class       Class    @relation(fields: [class_id], references: [id], onDelete: Restrict)
+  subject     Subject  @relation(fields: [subject_id], references: [id], onDelete: Restrict)
+  teacher     User     @relation(fields: [teacher_id], references: [id], onDelete: Restrict)
+
+  @@map("perangkat_pembelajaran")
+}
