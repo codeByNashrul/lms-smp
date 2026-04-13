@@ -1,28 +1,18 @@
-import arcjet, {
-  detectBot,
-  fixedWindow,
-  protectSignup,
-  sensitiveInfo,
-  shield,
-  slidingWindow,
-} from "@arcjet/next";
-import { env } from "./env";
+import arcjet, { shield, detectBot } from "@arcjet/next";
+import { env } from "@/lib/env";
 
-export {
-  detectBot,
-  fixedWindow,
-  protectSignup,
-  sensitiveInfo,
-  shield,
-  slidingWindow,
-};
+const arcjetKey = env.ARCJET_KEY ?? "dummy-key";
 
 export default arcjet({
-  key: env.ARCJET_KEY,
+  key: arcjetKey,
   characteristics: ["fingerprint"],
   rules: [
     shield({
       mode: "LIVE",
+    }),
+    detectBot({
+      mode: "LIVE",
+      allow: ["CATEGORY:SEARCH_ENGINE"],
     }),
   ],
 });
