@@ -11,14 +11,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, LogIn } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
-export function LoginForm() {
+type LoginFormProps = {
+  nextUrl: string;
+};
+
+export function LoginForm({ nextUrl }: LoginFormProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/";
 
   const [pending, start] = useTransition();
   const [username, setUsername] = useState("");
@@ -32,18 +34,20 @@ export function LoginForm() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password }),
         });
+
         const data = await res.json().catch(() => ({}));
+
         if (!res.ok) {
           toast.error(data?.message || "Gagal masuk.");
           return;
         }
 
-        // Redirect sesuai role
         const role = data?.role as string | undefined;
+
         if (role === "admin") router.push("/admin");
         else if (role === "guru") router.push("/guru");
         else if (role === "siswa") router.push("/siswa");
-        else router.push(next);
+        else router.push(nextUrl);
       } catch {
         toast.error("Terjadi kesalahan. Silakan coba lagi.");
       }
@@ -58,6 +62,7 @@ export function LoginForm() {
           Silakan masuk menggunakan akun yang diberikan sekolah.
         </CardDescription>
       </CardHeader>
+
       <CardContent className="flex flex-col gap-4">
         <div className="grid gap-2">
           <Label htmlFor="username">Username</Label>
